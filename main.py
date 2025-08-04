@@ -116,3 +116,46 @@ def scrape_match_parsed(match_id: str):
 
     except Exception as e:
         return {"match_id": match_id, "error": str(e)}
+
+
+import requests
+from bs4 import BeautifulSoup
+
+def html_enrich_metadata(match_id):
+    try:
+        base_url = f"https://www.sofascore.com/tennis/-/{match_id}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(base_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        # Try scraping from meta description or og:title
+        meta_desc = soup.find("meta", property="og:description")
+        og_title = soup.find("meta", property="og:title")
+
+        tournament = None
+        round_name = None
+        surface = None
+
+        if og_title and " vs " in og_title.get("content", ""):
+            parts = og_title.get("content", "").split(" - ")
+            if len(parts) > 1:
+                tournament = parts[1].strip()
+
+        if meta_desc:
+            desc = meta_desc.get("content", "")
+            if "•" in desc:
+                fields = [x.strip() for x in desc.split("•")]
+                for field in fields:
+                    if "Clay" in field or "Hard" in field or "Grass" in field:
+                        surface = field
+                    elif "Round" in field or "Final" in field:
+                        round_name = field
+
+        return {
+            "enriched_tournament": tournament,
+            "enriched_round": round_name,
+            "enriched_surface": surface
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
