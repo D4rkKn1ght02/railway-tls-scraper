@@ -111,7 +111,7 @@ def scrape_match_parsed(match_id: str):
             "tournament": tournament_info or "(Not Provided)",
             "round": tournament_round or "(Not Provided)",
             "location": country if country and country != "Unknown Location" else enrich_tournament_info(event.get("tournament", {}).get("slug", "")).get("location", "(Not Provided)"),
-            "court": court or "(Not Provided)",
+            "court": court if court and court != "Unknown Court" else COURT_MAP.get(event.get("tournament", {}).get("slug", ""), "(Not Provided)"),
             "surface": surface if surface and surface != "Unknown Surface" else enrich_tournament_info(event.get("tournament", {}).get("slug", "")).get("surface", "(Not Provided)"),
             "status": status,
             "start_time": format_unix_timestamp(start_time),
@@ -120,7 +120,8 @@ def scrape_match_parsed(match_id: str):
             "risk_tag": risk_tag,
             "tiebreak_detected": tiebreak_flag,
             "stats": player_stats,
-            "raw": data
+            "is_recent_match": is_recent_match(start_time),
+    "raw": data
         }
 
     except Exception as e:
@@ -181,3 +182,20 @@ TOURNAMENT_PRESETS = {
 def enrich_tournament_info(slug):
     slug = slug.lower().strip()
     return TOURNAMENT_PRESETS.get(slug, {})
+
+
+from datetime import datetime, timezone
+
+# Manual court map fallback
+COURT_MAP = {
+    "itf-m15-addis-ababa": "Ethiopia National Tennis Centre",
+    "itf-w15-eindhoven": "Genneper Parken Clay Courts",
+}
+
+def is_recent_match(ts):
+    try:
+        match_time = datetime.fromtimestamp(int(ts), tz=timezone.utc)
+        now = datetime.now(timezone.utc)
+        return abs((now - match_time).total_seconds()) < 7 * 86400  # 7 days
+    except:
+        return False
