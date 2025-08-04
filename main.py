@@ -32,6 +32,10 @@ def scrape_match(match_id: str):
         return {"match_id": match_id, "data": response.json()}
     except Exception as e:
         return {"match_id": match_id, "error": str(e)}
+
+    except Exception as e:
+        return {"match_id": match_id, "error": str(e)}
+
 @app.get("/scrape_match_parsed")
 def scrape_match_parsed(match_id: str):
     try:
@@ -45,14 +49,30 @@ def scrape_match_parsed(match_id: str):
         away = event.get("awayTeam", {}).get("name", "Away")
         status = event.get("status", {}).get("description", "Unknown")
         tournament = event.get("tournament", {}).get("name", "Unknown Tournament")
+        odds = event.get("markets", [])
 
-        sets = []
-        scores = event.get("homeScore", {}).get("period1", {}), event.get("awayScore", {}).get("period1", {})
         set_data = event.get("homeScore", {}).get("periods", [])
-        for s in set_data:
-            home_score = s.get("home", "-")
-            away_score = s.get("away", "-")
-            sets.append(f"{home_score}-{away_score}")
+        sets = [f"{s.get('home', '-')}-{s.get('away', '-')}" for s in set_data]
+
+        # Momentum + Serve info (where available)
+        serving = None
+        if "currentServer" in event:
+            server_id = event["currentServer"].get("id")
+            if server_id == event.get("homeTeam", {}).get("id"):
+                serving = home
+            elif server_id == event.get("awayTeam", {}).get("id"):
+                serving = away
+
+        # Example win prob placeholder if odds exist
+        win_prob = None
+        if odds:
+            for market in odds:
+                if "outright" in market.get("name", "").lower():
+                    outcomes = market.get("outcomes", [])
+                    if len(outcomes) == 2:
+                        home_prob = outcomes[0].get("probability", None)
+                        away_prob = outcomes[1].get("probability", None)
+                        win_prob = {home: home_prob, away: away_prob}
 
         return {
             "match_id": match_id,
@@ -60,6 +80,8 @@ def scrape_match_parsed(match_id: str):
             "status": status,
             "tournament": tournament,
             "sets": sets,
+            "serving": serving,
+            "win_probabilities": win_prob,
             "raw": data
         }
 
