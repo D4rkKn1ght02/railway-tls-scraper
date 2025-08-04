@@ -40,6 +40,10 @@ def scrape_match(match_id: str):
     except Exception as e:
         return {"match_id": match_id, "error": str(e)}
 
+
+    except Exception as e:
+        return {"match_id": match_id, "error": str(e)}
+
 @app.get("/scrape_match_parsed")
 def scrape_match_parsed(match_id: str):
     try:
@@ -82,28 +86,30 @@ def scrape_match_parsed(match_id: str):
                 away_val = item.get("away", "")
                 player_stats[name] = {home: home_val, away: away_val}
 
-        # Momentum tag
+        # Risk Tag + Tiebreak Detection
         risk_tag = "🟢 Stable"
+        tiebreak_flag = any(score in ["6-6", "7-6"] for score in sets)
         if len(sets) >= 2 and sets[0] != sets[1]:
             risk_tag = "🔥 Momentum Shift"
         elif all("0" not in score for score in sets):
             risk_tag = "🛡️ Hold Dominance"
-        elif sets.count("6-6") > 0:
+        elif tiebreak_flag:
             risk_tag = "⚠️ Tiebreak Pressure"
 
         return {
             "match_id": match_id,
             "players": f"{home} vs {away}",
-            "tournament": tournament_info,
-            "round": tournament_round,
-            "location": country,
-            "court": court,
-            "surface": surface,
+            "tournament": tournament_info or "(Not Provided)",
+            "round": tournament_round or "(Not Provided)",
+            "location": country or "(Not Provided)",
+            "court": court or "(Not Provided)",
+            "surface": surface or "(Not Provided)",
             "status": status,
             "start_time": start_time,
             "sets": sets,
             "serving": serving,
             "risk_tag": risk_tag,
+            "tiebreak_detected": tiebreak_flag,
             "stats": player_stats,
             "raw": data
         }
