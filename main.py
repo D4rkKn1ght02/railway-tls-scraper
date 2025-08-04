@@ -36,6 +36,10 @@ def scrape_match(match_id: str):
     except Exception as e:
         return {"match_id": match_id, "error": str(e)}
 
+
+    except Exception as e:
+        return {"match_id": match_id, "error": str(e)}
+
 @app.get("/scrape_match_parsed")
 def scrape_match_parsed(match_id: str):
     try:
@@ -45,43 +49,62 @@ def scrape_match_parsed(match_id: str):
         data = response.json()
 
         event = data.get("event", {})
-        home = event.get("homeTeam", {}).get("name", "Home")
-        away = event.get("awayTeam", {}).get("name", "Away")
+        home_team = event.get("homeTeam", {})
+        away_team = event.get("awayTeam", {})
+        home = home_team.get("name", "Home")
+        away = away_team.get("name", "Away")
         status = event.get("status", {}).get("description", "Unknown")
-        tournament = event.get("tournament", {}).get("name", "Unknown Tournament")
-        odds = event.get("markets", [])
+        tournament_info = event.get("tournament", {}).get("name", "Unknown Tournament")
+        tournament_round = event.get("roundInfo", {}).get("name", "Unknown Round")
+        country = event.get("tournament", {}).get("category", {}).get("name", "Unknown Location")
+        surface = event.get("groundType", "Unknown Surface")
+        court = event.get("venue", {}).get("stadium", {}).get("name", "Unknown Court")
+        start_time = event.get("startTimestamp", "Unknown Time")
 
         set_data = event.get("homeScore", {}).get("periods", [])
         sets = [f"{s.get('home', '-')}-{s.get('away', '-')}" for s in set_data]
 
-        # Momentum + Serve info (where available)
+        # Serving info
         serving = None
-        if "currentServer" in event:
-            server_id = event["currentServer"].get("id")
-            if server_id == event.get("homeTeam", {}).get("id"):
-                serving = home
-            elif server_id == event.get("awayTeam", {}).get("id"):
-                serving = away
+        server_id = event.get("currentServer", {}).get("id")
+        if server_id == home_team.get("id"):
+            serving = home
+        elif server_id == away_team.get("id"):
+            serving = away
 
-        # Example win prob placeholder if odds exist
-        win_prob = None
-        if odds:
-            for market in odds:
-                if "outright" in market.get("name", "").lower():
-                    outcomes = market.get("outcomes", [])
-                    if len(outcomes) == 2:
-                        home_prob = outcomes[0].get("probability", None)
-                        away_prob = outcomes[1].get("probability", None)
-                        win_prob = {home: home_prob, away: away_prob}
+        # Stats (if present)
+        player_stats = {}
+        stat_root = event.get("statistics", {}).get("groups", [])
+        for group in stat_root:
+            for item in group.get("statisticsItems", []):
+                name = item.get("name", "")
+                home_val = item.get("home", "")
+                away_val = item.get("away", "")
+                player_stats[name] = {home: home_val, away: away_val}
+
+        # Momentum tag
+        risk_tag = "🟢 Stable"
+        if len(sets) >= 2 and sets[0] != sets[1]:
+            risk_tag = "🔥 Momentum Shift"
+        elif all("0" not in score for score in sets):
+            risk_tag = "🛡️ Hold Dominance"
+        elif sets.count("6-6") > 0:
+            risk_tag = "⚠️ Tiebreak Pressure"
 
         return {
             "match_id": match_id,
             "players": f"{home} vs {away}",
+            "tournament": tournament_info,
+            "round": tournament_round,
+            "location": country,
+            "court": court,
+            "surface": surface,
             "status": status,
-            "tournament": tournament,
+            "start_time": start_time,
             "sets": sets,
             "serving": serving,
-            "win_probabilities": win_prob,
+            "risk_tag": risk_tag,
+            "stats": player_stats,
             "raw": data
         }
 
