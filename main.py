@@ -1,3 +1,12 @@
+
+from datetime import datetime
+
+def format_unix_timestamp(ts):
+    try:
+        return datetime.utcfromtimestamp(int(ts)).strftime('%Y-%m-%d %H:%M UTC')
+    except Exception as e:
+        return f"Invalid timestamp: {ts}"
+
 from fastapi import FastAPI, Query
 from typing import List
 import tls_client
@@ -105,7 +114,7 @@ def scrape_match_parsed(match_id: str):
             "court": court or "(Not Provided)",
             "surface": surface or "(Not Provided)",
             "status": status,
-            "start_time": start_time,
+            "start_time": format_unix_timestamp(start_time),
             "sets": sets,
             "serving": serving,
             "risk_tag": risk_tag,
