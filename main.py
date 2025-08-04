@@ -110,9 +110,9 @@ def scrape_match_parsed(match_id: str):
             "players": f"{home} vs {away}",
             "tournament": tournament_info or "(Not Provided)",
             "round": tournament_round or "(Not Provided)",
-            "location": country or "(Not Provided)",
+            "location": country if country and country != "Unknown Location" else enrich_tournament_info(event.get("tournament", {}).get("slug", "")).get("location", "(Not Provided)"),
             "court": court or "(Not Provided)",
-            "surface": surface or "(Not Provided)",
+            "surface": surface if surface and surface != "Unknown Surface" else enrich_tournament_info(event.get("tournament", {}).get("slug", "")).get("surface", "(Not Provided)"),
             "status": status,
             "start_time": format_unix_timestamp(start_time),
             "sets": sets,
@@ -168,3 +168,16 @@ def html_enrich_metadata(match_id):
 
     except Exception as e:
         return {"error": str(e)}
+
+
+# Lookup tables for fallback enrichment
+TOURNAMENT_PRESETS = {
+    "itf-w15-eindhoven": {"location": "Netherlands", "surface": "Outdoor Clay"},
+    "itf-m15-addis-ababa": {"location": "Ethiopia", "surface": "Outdoor Clay"},
+    "itf-w15-cairo": {"location": "Egypt", "surface": "Clay"},
+    "itf-m15-monastir": {"location": "Tunisia", "surface": "Hard"},
+}
+
+def enrich_tournament_info(slug):
+    slug = slug.lower().strip()
+    return TOURNAMENT_PRESETS.get(slug, {})
